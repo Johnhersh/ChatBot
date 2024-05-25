@@ -1,10 +1,10 @@
-using Core;
+using ChatBot;
 using Core.Models;
 using Microsoft.Extensions.Logging;
 using RandomNameGeneratorNG;
 using Tiktoken;
 
-namespace ChatBot;
+namespace Core;
 
 public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctions databaseFunctions)
 {

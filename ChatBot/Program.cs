@@ -1,6 +1,7 @@
 using ChatBot;
 using ChatBot.Routes;
 using ChatBot.Telegram;
+using Core;
 using DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
