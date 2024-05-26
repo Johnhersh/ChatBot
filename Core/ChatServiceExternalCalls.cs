@@ -1,4 +1,3 @@
-using ChatBot;
 using Core.Models;
 using Microsoft.Extensions.Logging;
 
@@ -11,7 +10,7 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
     public async Task<string?> Send(ChatSession chatSession, ReceivedMessage newMessage, CancellationToken cancellationToken)
     {
         var llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
-        var addChatResult = characterService.AddAiOutputToChat(chatSession, llmResult);
+        var addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
 
         if (addChatResult.RemovedMessages is not null)
         {
@@ -29,7 +28,10 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
         var evaluationResult = await llmProvider.SendEvaluation(newMessage.SenderId, cancellationToken);
         var messageAfterEval = await ReceiveNewLLMEvaluationResult(evaluationResult, newMessage.SenderId);
 
-        return messageAfterEval;
+        var lastClosingBraceIndex = messageAfterEval.LastIndexOf('}');
+        var messageWithoutInnerThoughts = lastClosingBraceIndex != -1 ? messageAfterEval[(lastClosingBraceIndex + 2)..] : messageAfterEval;
+
+        return messageWithoutInnerThoughts;
     }
 
     private async Task<string> ReceiveNewLLMEvaluationResult(string incomingLLMMessage, long userId)

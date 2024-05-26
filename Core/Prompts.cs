@@ -69,7 +69,7 @@ public static class Prompts
         for (var i = 0; i < chatHistory.Count - 1; i++) sb.AppendLine($"{chatHistory[i].SenderName}: {chatHistory[i].Message}");
         chatHistory.ForEach(message => sb.AppendLine($"{message.SenderName}: {message.Message}"));
 
-        sb.Append($"{assistant.Name}: ");
+        sb.Append($"{assistant.Name}: {{");
         return sb.ToString();
     }
 

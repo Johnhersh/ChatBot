@@ -31,9 +31,9 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
         var chatHistory = new List<ChatMessage>
         {
             new() { Message = $"Hello {character.Name}!", SenderName = userName },
-            new() { Message = $"Hi! {userName}!", SenderName = newCharacterName },
-            new() { Message = "How are you doing today?", SenderName = userName },
-            new() { Message = "Not too bad, how are you doing?", SenderName = newCharacterName }
+            new() { Message = $"{{Ooh a new match! Exciting!}} Hi! {userName}!", SenderName = newCharacterName },
+            new() { Message = "Nice to meet you!", SenderName = userName },
+            new() { Message = "{Let's reciprocate. Let's see where this goes} Not too bad, how are you doing?", SenderName = newCharacterName }
         };
 
         var newSession = new ChatSession
