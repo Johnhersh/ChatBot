@@ -87,6 +87,13 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
         }
 
         var trimmed = cleanedResponse.Trim();
+
+        if (chat.ChatHistory.Any(message => message.Message == trimmed))
+        {
+            logger.LogWarning("Found identical message in chat history");
+            return new AddAiOutputResult(false, "", chat.ChatHistory, "Identical");
+        }
+
         chat.ChatHistory.Add(new ChatMessage { Message = trimmed, SenderName = chat.PromptAssistantName });
 
         if (chat.ChatHistory.Count <= 25) return new AddAiOutputResult(true, trimmed);

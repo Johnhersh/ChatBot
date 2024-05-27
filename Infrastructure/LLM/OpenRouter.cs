@@ -22,7 +22,7 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
     public async Task<string> SendChat(ReceivedMessage result, ChatSession chat, CancellationToken cancellationToken)
     {
         var prompt = CharacterService.ConvertMessageToPrompt(result.Message, chat).Content;
-        return await Post(cancellationToken, Model.MythoMaxL213B, prompt, await characterService.GetStopSequenceForChat(result.SenderId), 250, 1.25f);
+        return await Post(cancellationToken, Model.MythoMaxL213B, prompt, await characterService.GetStopSequenceForChat(result.SenderId), 250, 1.17f);
     }
 
     public async Task<string> SendEvaluation(long senderId, CancellationToken cancellationToken)

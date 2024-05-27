@@ -12,16 +12,26 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
         var llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
         var addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
 
+        if (!addChatResult.Success)
+        {
+            if (addChatResult.ErrorMessage == "Identical")
+            {
+                _logger.LogWarning("Trying again");
+                llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
+                addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
+            }
+
+            if (!addChatResult.Success)
+            {
+                _logger.LogError("Error adding message: {NewMessage}", addChatResult.ErrorMessage);
+                return addChatResult.ErrorMessage;
+            }
+        }
+
         if (addChatResult.RemovedMessages is not null)
         {
             var result = await llmProvider.SendSummary(newMessage.SenderId, addChatResult.RemovedMessages, cancellationToken);
             await characterService.UpdateMemory(newMessage.SenderId, result);
-        }
-
-        if (!addChatResult.Success)
-        {
-            _logger.LogError("Error adding message: {NewMessage}", addChatResult.ErrorMessage);
-            return addChatResult.ErrorMessage;
         }
 
         // Evaluate interest
