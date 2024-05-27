@@ -26,24 +26,18 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
 
         // Evaluate interest
         var evaluationResult = await llmProvider.SendEvaluation(newMessage.SenderId, cancellationToken);
-        var messageAfterEval = await ReceiveNewLLMEvaluationResult(evaluationResult, newMessage.SenderId);
+        var evalPrefix = await GetEvaluationPrefix(evaluationResult, newMessage.SenderId);
 
-        var lastClosingBraceIndex = messageAfterEval.LastIndexOf('}');
-        var messageWithoutInnerThoughts = lastClosingBraceIndex != -1 ? messageAfterEval[(lastClosingBraceIndex + 2)..] : messageAfterEval;
+        var lastClosingBraceIndex = addChatResult.Content.LastIndexOf('}');
+        var messageWithoutInnerThoughts = lastClosingBraceIndex != -1 ? evalPrefix + addChatResult.Content[(lastClosingBraceIndex + 2)..] : addChatResult.Content;
 
         return messageWithoutInnerThoughts;
     }
 
-    private async Task<string> ReceiveNewLLMEvaluationResult(string incomingLLMMessage, long userId)
+    private async Task<string> GetEvaluationPrefix(string incomingLLMMessage, long userId)
     {
-        var lastMessage = await characterService.GetLastAssistantMessage(userId);
         var newInterest = await characterService.UpdateInterest(incomingLLMMessage, userId);
-
-        if (newInterest.ErrorMessage.Length > 0) return lastMessage + "\n\n" + newInterest.ErrorMessage;
-
-        if (lastMessage is null) throw new Exception("Cannot find any assistant messages");
-        if (newInterest.DidInterestUpgrade) lastMessage = "😍 " + lastMessage;
-
-        return lastMessage;
+        if (newInterest.ErrorMessage.Length > 0) return newInterest.ErrorMessage;
+        return newInterest.DidInterestUpgrade ? "😍 " : "";
     }
 }
