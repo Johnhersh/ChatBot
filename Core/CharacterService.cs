@@ -70,7 +70,11 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
 
     public AddAiOutputResult AddAiOutputToChat(ChatSession chat, string chatResult)
     {
-        var cleanedResponse = chatResult.Replace($"{chat.Character.Name}: ", "").Replace($"<|im_start|>{chat.Character.Name}", "").Trim();
+        var cleanedResponse = chatResult
+            .Replace($"{chat.Character.Name}: ", "")
+            .Replace($"{chat.PromptUserName}:", "")
+            .Trim();
+
         var lastCharacter = cleanedResponse.Last();
         var isLetter = char.IsLetter(lastCharacter);
         var isSeparator = lastCharacter is ',';
@@ -183,7 +187,7 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
         var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
         if (chatSession is null) throw new NullReferenceException("Cannot find chat session");
 
-        string[] result = [$"{chatSession.PromptUserName}:", $"{chatSession.PromptAssistantName}:", """\n\n""", "</s>", "\\nUser "];
+        string[] result = [$"{chatSession.PromptUserName}:", $"{chatSession.PromptAssistantName}:", "\n\n", "</s>", "\nUser "];
         return result;
     }
 }
