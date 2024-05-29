@@ -13,8 +13,9 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
         var addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
 
         var lastClosingCurlyBraceIndex = addChatResult.Content.LastIndexOf('}');
+        var onlyOneClosingBrace = addChatResult.Content.Count(ch => ch == '}') == 1;
         var messageStartIndex = lastClosingCurlyBraceIndex + 2;
-        var shouldRetry = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length;
+        var shouldRetry = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length && onlyOneClosingBrace;
 
         if (shouldRetry || !addChatResult.Success)
         {
@@ -22,8 +23,9 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
             llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
             addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
             lastClosingCurlyBraceIndex = addChatResult.Content.LastIndexOf('}');
+            onlyOneClosingBrace = addChatResult.Content.Count(ch => ch == '}') == 1;
             messageStartIndex = lastClosingCurlyBraceIndex + 2;
-            var retrySuccess = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length;
+            var retrySuccess = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length && onlyOneClosingBrace;
 
             if (!retrySuccess || !addChatResult.Success)
             {
