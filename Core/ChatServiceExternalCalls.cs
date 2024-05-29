@@ -12,6 +12,26 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
         var llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
         var addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
 
+        var lastClosingCurlyBraceIndex = addChatResult.Content.LastIndexOf('}');
+        var messageStartIndex = lastClosingCurlyBraceIndex + 2;
+        var shouldRetry = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length;
+
+        if (shouldRetry || !addChatResult.Success)
+        {
+            _logger.LogWarning("Received message with only inner-thoughts: {Message}", addChatResult.Content);
+            llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
+            addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
+            lastClosingCurlyBraceIndex = addChatResult.Content.LastIndexOf('}');
+            messageStartIndex = lastClosingCurlyBraceIndex + 2;
+            var retrySuccess = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length;
+
+            if (!retrySuccess || !addChatResult.Success)
+            {
+                _logger.LogError("Received message with only inner-thoughts: {Message}", addChatResult.Content);
+                return "We encountered some BS error.. sorry... Try again maybe?";
+            }
+        }
+
         if (!addChatResult.Success)
         {
             if (addChatResult.ErrorMessage == "Identical")
