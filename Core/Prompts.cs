@@ -63,7 +63,7 @@ public static class Prompts
         sb.AppendLine(assistant.Memory);
 
         sb.AppendLine("");
-        sb.AppendLine("# Conversation:");
+        sb.AppendLine("# CONVERSATION");
 
         // Append all chat messages except for the last one (User's input)
         for (var i = 0; i < chatHistory.Count - 1; i++) sb.AppendLine($"{chatHistory[i].SenderName}: {chatHistory[i].Message}");
