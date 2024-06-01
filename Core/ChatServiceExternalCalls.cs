@@ -14,13 +14,14 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
 
         if (!addChatResult.Success)
         {
-            _logger.LogWarning("Received bad message: {Message}", addChatResult.Content);
+            _logger.LogWarning("Received bad message: {Message}", llmResult);
+            chatSession.ChatHistory.RemoveAt(chatSession.ChatHistory.Count - 1); // SendChat() will add the user's message to the history. If we fail we have to undo that
             llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
             addChatResult = characterService.AddAiOutputToChat(chatSession, $"{llmResult}");
 
             if (!addChatResult.Success)
             {
-                _logger.LogError("Received message twice with only inner-thoughts: {Message}", addChatResult.Content);
+                _logger.LogError("Received message twice with only inner-thoughts: {Message}", llmResult);
                 return "We encountered some BS error.. sorry... Try again maybe?";
             }
         }
