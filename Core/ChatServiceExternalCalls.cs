@@ -10,43 +10,18 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
     public async Task<string?> Send(ChatSession chatSession, ReceivedMessage newMessage, CancellationToken cancellationToken)
     {
         var llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
-        var addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
-
-        var lastClosingCurlyBraceIndex = addChatResult.Content.LastIndexOf('}');
-        var onlyOneClosingBrace = addChatResult.Content.Count(ch => ch == '}') == 1;
-        var messageStartIndex = lastClosingCurlyBraceIndex + 2;
-        var shouldRetry = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length && onlyOneClosingBrace;
-
-        if (shouldRetry || !addChatResult.Success)
-        {
-            _logger.LogWarning("Received message with only inner-thoughts: {Message}", addChatResult.Content);
-            llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
-            addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
-            lastClosingCurlyBraceIndex = addChatResult.Content.LastIndexOf('}');
-            onlyOneClosingBrace = addChatResult.Content.Count(ch => ch == '}') == 1;
-            messageStartIndex = lastClosingCurlyBraceIndex + 2;
-            var retrySuccess = lastClosingCurlyBraceIndex != -1 && messageStartIndex >= addChatResult.Content.Length && onlyOneClosingBrace;
-
-            if (!retrySuccess || !addChatResult.Success)
-            {
-                _logger.LogError("Received message with only inner-thoughts: {Message}", addChatResult.Content);
-                return "We encountered some BS error.. sorry... Try again maybe?";
-            }
-        }
+        var addChatResult = characterService.AddAiOutputToChat(chatSession, $"{llmResult}");
 
         if (!addChatResult.Success)
         {
-            if (addChatResult.ErrorMessage == "Identical")
-            {
-                _logger.LogWarning("Trying again");
-                llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
-                addChatResult = characterService.AddAiOutputToChat(chatSession, $"{{{llmResult}");
-            }
+            _logger.LogWarning("Received bad message: {Message}", addChatResult.Content);
+            llmResult = await llmProvider.SendChat(newMessage, chatSession, cancellationToken);
+            addChatResult = characterService.AddAiOutputToChat(chatSession, $"{llmResult}");
 
             if (!addChatResult.Success)
             {
-                _logger.LogError("Error adding message: {NewMessage}", addChatResult.ErrorMessage);
-                return addChatResult.ErrorMessage;
+                _logger.LogError("Received message twice with only inner-thoughts: {Message}", addChatResult.Content);
+                return "We encountered some BS error.. sorry... Try again maybe?";
             }
         }
 
@@ -61,9 +36,17 @@ public class ChatServiceExternalCalls(ILLMProvider llmProvider, CharacterService
         var evalPrefix = await GetEvaluationPrefix(evaluationResult, newMessage.SenderId);
 
         var lastClosingBraceIndex = addChatResult.Content.LastIndexOf('}');
-        var messageWithoutInnerThoughts = lastClosingBraceIndex != -1 ? evalPrefix + addChatResult.Content[(lastClosingBraceIndex + 2)..] : addChatResult.Content;
-
-        return messageWithoutInnerThoughts;
+        try
+        {
+            var messageWithoutInnerThoughts = lastClosingBraceIndex != -1 ? evalPrefix + addChatResult.Content[(lastClosingBraceIndex + 2)..] : addChatResult.Content;
+            return messageWithoutInnerThoughts;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            logger.LogError("{Content}", addChatResult.Content);
+            throw;
+        }
     }
 
     private async Task<string> GetEvaluationPrefix(string incomingLLMMessage, long userId)

@@ -70,6 +70,15 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
 
     public AddAiOutputResult AddAiOutputToChat(ChatSession chat, string chatResult)
     {
+        var lastClosingCurlyBraceIndex = chatResult.LastIndexOf('}');
+        var haveParseableInput = !string.IsNullOrEmpty(chatResult) && lastClosingCurlyBraceIndex != -1;
+        var onlyOneClosingBrace = chatResult.Count(ch => ch == '}') == 1;
+        var haveMessage = chatResult.Length > lastClosingCurlyBraceIndex + 2;
+        
+        var canProcessInput = haveParseableInput && haveMessage && onlyOneClosingBrace;
+        if (!canProcessInput)
+            return new AddAiOutputResult(false, "", chat.ChatHistory, "BadInput");
+
         var cleanedResponse = chatResult
             .Replace($"{chat.Character.Name}: ", "")
             .Replace($"{chat.PromptUserName}:", "")
