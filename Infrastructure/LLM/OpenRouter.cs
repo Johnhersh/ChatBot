@@ -14,11 +14,13 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
         // ReSharper disable StringLiteralTypo
         { Model.NousHermesMistral, "nousresearch/nous-hermes-2-mistral-7b-dpo" },
         { Model.Mistral7BInstructV02, "mistralai/mistral-7b-instruct:nitro" },
-        { Model.MythoMaxL213B, "gryphe/mythomax-l2-13b" },
+        { Model.MythoMaxL213B, "gryphe/mythomax-l2-13b" }, // [****-]
         { Model.NousHermes2ProLlama3, "nousresearch/hermes-2-pro-llama-3-8b" }, // [***--]
         { Model.NousHermesL213B, "nousresearch/nous-hermes-llama2-13b" }, // [*----]
         { Model.DolphinMixtral8X7B, "cognitivecomputations/dolphin-mixtral-8x7b" }, // [***--]
-        { Model.Phi3Medium, "microsoft/phi-3-medium-128k-instruct" } // [***--]
+        { Model.Phi3Medium, "microsoft/phi-3-medium-128k-instruct" }, // [**---]
+        { Model.Lzlv70B, "lizpreciatior/lzlv-70b-fp16-hf" }, // [****-] very natural flowing
+        { Model.Mythalion13B, "pygmalionai/mythalion-13b" } // [***--] expensive
         // ReSharper restore StringLiteralTypo
     };
 
@@ -27,8 +29,9 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
     public async Task<string> SendChat(ReceivedMessage result, ChatSession chat, CancellationToken cancellationToken)
     {
         var prompt = CharacterService.ConvertMessageToPrompt(result.Message, chat).Content;
-        const Model model = Model.Phi3Medium;
-        return await Post(cancellationToken, model, prompt, await characterService.GetStopSequenceForChat(result.SenderId), 250);
+        const Model model = Model.Lzlv70B;
+        const float minP = 0.1f; // https://www.reddit.com/r/LocalLLaMA/comments/17vonjo/your_settings_are_probably_hurting_your_model_why/
+        return await Post(cancellationToken, model, prompt, await characterService.GetStopSequenceForChat(result.SenderId), 250, minP: minP);
     }
 
     public async Task<string> SendEvaluation(long senderId, CancellationToken cancellationToken)
@@ -44,7 +47,8 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
         return result;
     }
 
-    private async Task<string> Post(CancellationToken cancellationToken, Model model, string prompt, string[]? stopSequence, int maxToken, float? repetitionPenalty = null)
+    private async Task<string> Post(CancellationToken cancellationToken, Model model, string prompt, string[]? stopSequence, int maxToken, float? repetitionPenalty = null,
+        float? minP = null)
     {
         var requestData = new Dictionary<string, object>
         {
@@ -55,6 +59,7 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
 
         if (repetitionPenalty is not null) requestData.Add("repetition_penalty", repetitionPenalty);
         if (stopSequence is not null) requestData.Add("stop", stopSequence);
+        if (minP is not null) requestData.Add("min_p", minP);
 
         using var client = new HttpClient();
         client.Timeout = TimeSpan.FromMinutes(10);
@@ -83,7 +88,9 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
         NousHermes2ProLlama3,
         NousHermesL213B,
         DolphinMixtral8X7B,
-        Phi3Medium
+        Phi3Medium,
+        Mythalion13B,
+        Lzlv70B
     }
     // ReSharper restore IdentifierTypo
 }
