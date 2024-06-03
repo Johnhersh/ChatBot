@@ -34,7 +34,7 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
     public async Task<string> SendEvaluation(long senderId, CancellationToken cancellationToken)
     {
         var sentimentPrompt = await characterService.GetSentimentPrompt(2, senderId);
-        return await Post(cancellationToken, Model.Mistral7BInstructV02, sentimentPrompt, await characterService.GetStopSequenceForChat(senderId), 200);
+        return await Post(cancellationToken, Model.Mistral7BInstructV02, sentimentPrompt, [], 200);
     }
 
     public async Task<string> SendSummary(long senderId, List<ChatMessage> oldMessages, CancellationToken cancellationToken)
