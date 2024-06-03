@@ -74,7 +74,7 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
         var haveParseableInput = !string.IsNullOrEmpty(chatResult) && lastClosingCurlyBraceIndex != -1;
         var onlyOneClosingBrace = chatResult.Count(ch => ch == '}') == 1;
         var haveMessage = chatResult.Length > lastClosingCurlyBraceIndex + 2;
-        
+
         var canProcessInput = haveParseableInput && haveMessage && onlyOneClosingBrace;
         if (!canProcessInput)
             return new AddAiOutputResult(false, "", chat.ChatHistory, "BadInput");
@@ -107,7 +107,7 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
             return new AddAiOutputResult(false, "", chat.ChatHistory, "Identical");
         }
 
-        chat.ChatHistory.Add(new ChatMessage { Message = trimmed, SenderName = chat.PromptAssistantName });
+        chat.ChatHistory.Add(new ChatMessage { Message = "{" + trimmed, SenderName = chat.PromptAssistantName });
 
         if (chat.ChatHistory.Count <= 25) return new AddAiOutputResult(true, trimmed);
 
