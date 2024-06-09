@@ -1,6 +1,6 @@
 using Core.Models;
 
-namespace ChatBot;
+namespace Core;
 
 public interface IDatabaseFunctions
 {
