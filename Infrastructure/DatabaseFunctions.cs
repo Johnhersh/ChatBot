@@ -1,4 +1,4 @@
-using ChatBot;
+using Core;
 using Core.Models;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
