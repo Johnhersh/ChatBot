@@ -27,13 +27,7 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
         };
         character.Prompt = Prompts.GenerateBasePrompt(character, userName);
 
-        var chatHistory = new List<ChatMessage>
-        {
-            new() { Message = $"Hello {character.Name}!", SenderName = userName },
-            new() { Message = $"{{Ooh a new match! Exciting!}} Hi! {userName}!", SenderName = newCharacterName },
-            new() { Message = "Nice to meet you!", SenderName = userName },
-            new() { Message = "{Let's reciprocate. Let's see where this goes} Not too bad, how are you doing?", SenderName = newCharacterName }
-        };
+        var chatHistory = new List<ChatMessage>();
 
         var newSession = new ChatSession
         {
@@ -43,6 +37,14 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
             PromptUserName = userName,
             PromptAssistantName = character.Name
         };
+
+        chatHistory.AddRange(new List<ChatMessage>
+        {
+            new() { Message = $"Hello {character.Name}!", SenderName = userName, ChatSession = newSession },
+            new() { Message = $"{{Ooh a new match! Exciting!}} Hi! {userName}!", SenderName = newCharacterName, ChatSession = newSession },
+            new() { Message = "Nice to meet you!", SenderName = userName, ChatSession = newSession },
+            new() { Message = "{Let's reciprocate. Let's see where this goes} Not too bad, how are you doing?", SenderName = newCharacterName, ChatSession = newSession }
+        });
 
         player.ChatSessions.Add(newSession);
         character.TokensUsed = GetAmountOfTokens(character.Prompt);
@@ -54,17 +56,8 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
 
     public static CharacterServiceResult ConvertMessageToPrompt(string input, ChatSession chat)
     {
-        chat.ChatHistory.Add(new ChatMessage { Message = input, SenderName = chat.PromptUserName });
+        chat.ChatHistory.Add(new ChatMessage { Message = input, SenderName = chat.PromptUserName, ChatSession = chat });
         return new CharacterServiceResult(true, Prompts.GetPromptMarkdown(chat.Character, chat.ChatHistory), chat.PromptAssistantName);
-    }
-
-    public async Task<CharacterServiceResult> ConvertMessageToChatPrompt(string input, long chatId)
-    {
-        var chat = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chat is null) return new CharacterServiceResult(false, "Chat not initialized. Use '/start ScreenName' to begin.", "");
-
-        chat.ChatHistory.Add(new ChatMessage { Message = input, SenderName = chat.PromptUserName });
-        return new CharacterServiceResult(true, Prompts.GetPromptChat(chat.Character, chat.ChatHistory), chat.PromptAssistantName);
     }
 
     public AddAiOutputResult AddAiOutputToChat(ChatSession chat, string chatResult)
@@ -106,7 +99,7 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
             return new AddAiOutputResult(false, "", chat.ChatHistory, "Identical");
         }
 
-        chat.ChatHistory.Add(new ChatMessage { Message = "{" + trimmed, SenderName = chat.PromptAssistantName });
+        chat.ChatHistory.Add(new ChatMessage { Message = "{" + trimmed, SenderName = chat.PromptAssistantName, ChatSession = chat });
 
         if (chat.ChatHistory.Count <= 25) return new AddAiOutputResult(true, trimmed);
 
@@ -115,23 +108,12 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
         return new AddAiOutputResult(true, trimmed, oldMessages);
     }
 
-    public async Task<string?> GetLastAssistantMessage(long chatId)
-    {
-        var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chatSession is null) return null;
-
-        var lastAssistantMessage = chatSession.ChatHistory.LastOrDefault(s => s.SenderName == chatSession.Character.Name);
-        if (lastAssistantMessage is not null) return lastAssistantMessage.Message;
-
-        logger.LogWarning("Tried getting an assistant message but no message found");
-        return null;
-    }
-
     public async Task<string> GetSentimentPrompt(int numberOfMessages, long chatId)
     {
-        var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chatSession is null) throw new NullReferenceException("Cannot find chat session");
+        var player = await databaseFunctions.GetFullPlayerByTelegramId(chatId);
+        if (player?.ActiveSession is null) throw new NullReferenceException("Cannot find chat session");
 
+        var chatSession = player.ActiveSession;
         var lastMessages = chatSession.ChatHistory.TakeLast(numberOfMessages);
         var sentimentPrompt = Prompts.GetSentimentEvaluationPrompt(lastMessages, chatSession.Character, chatSession.PromptUserName);
         return sentimentPrompt;
@@ -139,27 +121,29 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
 
     public async Task<string> GetSummaryPrompt(long chatId, List<ChatMessage> newMessages)
     {
-        var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chatSession is null) throw new NullReferenceException("Cannot find chat session");
+        var player = await databaseFunctions.GetFullPlayerByTelegramId(chatId);
+        if (player?.ActiveSession is null) throw new NullReferenceException("Cannot find chat session");
 
+        var chatSession = player.ActiveSession;
         return Prompts.GetMemorySummaryPrompt(chatSession.PromptAssistantName, chatSession.PromptUserName, chatSession.Character.Memory, newMessages);
     }
 
     public async Task UpdateMemory(long chatId, string newMemory)
     {
-        var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chatSession is null) throw new NullReferenceException("Cannot find chat session");
+        var player = await databaseFunctions.GetFullPlayerByTelegramId(chatId);
+        if (player?.ActiveSession is null) throw new NullReferenceException("Cannot find chat session");
 
-        chatSession.Character.Memory = newMemory.Trim();
+        player.ActiveSession.Character.Memory = newMemory.Trim();
     }
 
     public async Task<InterestResponse> UpdateInterest(string chatResult, long chatId)
     {
-        var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chatSession is null) throw new NullReferenceException("Cannot find chat session");
+        var player = await databaseFunctions.GetFullPlayerByTelegramId(chatId);
+        if (player?.ActiveSession is null) throw new NullReferenceException("Cannot find chat session");
         var interestShift = chatResult.Contains("POSITIVE") ? 1
             : chatResult.Contains("NEGATIVE") ? -1 : 0;
 
+        var chatSession = player.ActiveSession;
         chatSession.InterestScore += interestShift;
         if (chatSession.InterestScore == 0)
         {
@@ -192,9 +176,10 @@ public class CharacterService(ILogger<CharacterService> logger, IDatabaseFunctio
 
     public async Task<string[]> GetStopSequenceForChat(long chatId)
     {
-        var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chatSession is null) throw new NullReferenceException("Cannot find chat session");
+        var player = await databaseFunctions.GetFullPlayerByTelegramId(chatId);
+        if (player?.ActiveSession is null) throw new NullReferenceException("Cannot find chat session");
 
+        var chatSession = player.ActiveSession;
         string[] result = [$"{chatSession.PromptUserName}:", $"{chatSession.PromptAssistantName}:", "\n\n", "</s>", "\nUser "];
         return result;
     }

@@ -20,16 +20,17 @@ internal class DatabaseFunctions(ChatDbContext chatDbContext) : IDatabaseFunctio
         await chatDbContext.SaveChangesAsync();
     }
 
-    public async Task<ChatSession?> GetActiveSessionByTelegramId(long telegramId)
+    public async Task<Player?> GetFullPlayerByTelegramId(long telegramId)
     {
-        var player = await chatDbContext.Players
+        var player = chatDbContext.Players
+            .Where(p => p.TelegramId == telegramId)
             .Include(p => p.ActiveSession)
-            .ThenInclude(s => s.ChatHistory)
+            .ThenInclude(s => s.ChatHistory.OrderBy(m => m.Id))
             .Include(p => p.ActiveSession)
-            .ThenInclude(s => s.Character)
-            .FirstOrDefaultAsync(player => player.TelegramId == telegramId);
+            .ThenInclude(s => s.Character);
 
-        return player?.ActiveSession;
+        var result = await player.FirstOrDefaultAsync(); // TODO: See why this produces Left Join instead of Inner Join
+        return result;
     }
 
     public async Task RemoveActiveSessionByTelegramId(long telegramId)
@@ -49,7 +50,7 @@ internal class DatabaseFunctions(ChatDbContext chatDbContext) : IDatabaseFunctio
         return newPlayer.Entity;
     }
 
-    public async Task<Player?> GetPlayerByTelegramId(long telegramId)
+    public async Task<Player?> GetEmptyPlayerByTelegramId(long telegramId)
     {
         return await chatDbContext.Players
             .Include(player => player.ChatSessions)
