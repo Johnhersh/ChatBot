@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using ChatBot;
 using Core;
 using Core.Models;
 
@@ -12,9 +11,17 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
 
     private static readonly Dictionary<Model, string> ModelName = new()
     {
+        // ReSharper disable StringLiteralTypo
         { Model.NousHermesMistral, "nousresearch/nous-hermes-2-mistral-7b-dpo" },
         { Model.Mistral7BInstructV02, "mistralai/mistral-7b-instruct:nitro" },
-        { Model.MythoMaxL213B, "gryphe/mythomax-l2-13b" }
+        { Model.MythoMaxL213B, "gryphe/mythomax-l2-13b" }, // [****-]
+        { Model.NousHermes2ProLlama3, "nousresearch/hermes-2-pro-llama-3-8b" }, // [***--]
+        { Model.NousHermesL213B, "nousresearch/nous-hermes-llama2-13b" }, // [*----]
+        { Model.DolphinMixtral8X7B, "cognitivecomputations/dolphin-mixtral-8x7b" }, // [***--]
+        { Model.Phi3Medium, "microsoft/phi-3-medium-128k-instruct" }, // [**---]
+        { Model.Lzlv70B, "lizpreciatior/lzlv-70b-fp16-hf" }, // [****-] very natural flowing
+        { Model.Mythalion13B, "pygmalionai/mythalion-13b" } // [***--] expensive
+        // ReSharper restore StringLiteralTypo
     };
 
     private readonly string _apiKey = configuration["OpenRouterAiApiToken"] ?? throw new NullReferenceException("No TogetherAI API Key!");
@@ -22,13 +29,15 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
     public async Task<string> SendChat(ReceivedMessage result, ChatSession chat, CancellationToken cancellationToken)
     {
         var prompt = CharacterService.ConvertMessageToPrompt(result.Message, chat).Content;
-        return await Post(cancellationToken, Model.MythoMaxL213B, prompt, await characterService.GetStopSequenceForChat(result.SenderId), 250, 1.25f);
+        const Model model = Model.Lzlv70B;
+        const float minP = 0.1f; // https://www.reddit.com/r/LocalLLaMA/comments/17vonjo/your_settings_are_probably_hurting_your_model_why/
+        return await Post(cancellationToken, model, prompt, await characterService.GetStopSequenceForChat(result.SenderId), 250, minP: minP);
     }
 
     public async Task<string> SendEvaluation(long senderId, CancellationToken cancellationToken)
     {
         var sentimentPrompt = await characterService.GetSentimentPrompt(2, senderId);
-        return await Post(cancellationToken, Model.Mistral7BInstructV02, sentimentPrompt, await characterService.GetStopSequenceForChat(senderId), 200);
+        return await Post(cancellationToken, Model.Mistral7BInstructV02, sentimentPrompt, [], 200);
     }
 
     public async Task<string> SendSummary(long senderId, List<ChatMessage> oldMessages, CancellationToken cancellationToken)
@@ -38,7 +47,8 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
         return result;
     }
 
-    private async Task<string> Post(CancellationToken cancellationToken, Model model, string prompt, string[]? stopSequence, int maxToken, float? repetitionPenalty = null)
+    private async Task<string> Post(CancellationToken cancellationToken, Model model, string prompt, string[]? stopSequence, int maxToken, float? repetitionPenalty = null,
+        float? minP = null)
     {
         var requestData = new Dictionary<string, object>
         {
@@ -49,12 +59,14 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
 
         if (repetitionPenalty is not null) requestData.Add("repetition_penalty", repetitionPenalty);
         if (stopSequence is not null) requestData.Add("stop", stopSequence);
+        if (minP is not null) requestData.Add("min_p", minP);
 
         using var client = new HttpClient();
         client.Timeout = TimeSpan.FromMinutes(10);
         client.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
 
         var json = JsonSerializer.Serialize(requestData);
+        logger.LogInformation("{Json}", json);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await client.PostAsync(Url, content, cancellationToken);
@@ -67,10 +79,18 @@ internal class OpenRouter(CharacterService characterService, IConfiguration conf
         return completionResult is null ? "" : completionResult.choices[0].text;
     }
 
+    // ReSharper disable IdentifierTypo
     private enum Model
     {
         NousHermesMistral,
         Mistral7BInstructV02,
-        MythoMaxL213B
+        MythoMaxL213B,
+        NousHermes2ProLlama3,
+        NousHermesL213B,
+        DolphinMixtral8X7B,
+        Phi3Medium,
+        Mythalion13B,
+        Lzlv70B
     }
+    // ReSharper restore IdentifierTypo
 }

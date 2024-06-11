@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using ChatBot;
+using Core;
 
 namespace Infrastructure.LLM;
 

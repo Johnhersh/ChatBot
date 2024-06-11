@@ -59,17 +59,17 @@ public static class Prompts
         var sb = new StringBuilder();
         sb.AppendLine(assistant.Prompt);
         sb.AppendLine("");
-        sb.AppendLine($"### {assistant.Name.ToUpper()}'s MEMORY");
+        sb.AppendLine($"# {assistant.Name.ToUpper()}'s MEMORY");
         sb.AppendLine(assistant.Memory);
 
         sb.AppendLine("");
-        sb.AppendLine("### Conversation:");
+        sb.AppendLine("# CONVERSATION");
 
         // Append all chat messages except for the last one (User's input)
         for (var i = 0; i < chatHistory.Count - 1; i++) sb.AppendLine($"{chatHistory[i].SenderName}: {chatHistory[i].Message}");
         chatHistory.ForEach(message => sb.AppendLine($"{message.SenderName}: {message.Message}"));
 
-        sb.Append($"{assistant.Name}: ");
+        sb.Append($"{assistant.Name}: {{");
         return sb.ToString();
     }
 

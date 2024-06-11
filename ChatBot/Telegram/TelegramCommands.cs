@@ -55,14 +55,14 @@ internal class TelegramCommands(
 
     private async Task ProcessTextMessage(string messageText, long chatId, CancellationToken cancellationToken)
     {
-        var chatSession = await databaseFunctions.GetActiveSessionByTelegramId(chatId);
-        if (chatSession is null)
+        var player = await databaseFunctions.GetFullPlayerByTelegramId(chatId);
+        if (player?.ActiveSession is null)
         {
             await SendReply("Chat not initialized. Use '/start ScreenName' to begin.", null, null, chatId);
             return;
         }
 
-        var result = await chatService.Send(chatSession, new ReceivedMessage
+        var result = await chatService.Send(player.ActiveSession, new ReceivedMessage
         {
             Message = messageText,
             SenderId = chatId
@@ -89,7 +89,7 @@ internal class TelegramCommands(
 
         try
         {
-            var player = await databaseFunctions.GetPlayerByTelegramId(chatId) ?? await databaseFunctions.CreateNewPlayer(chatId);
+            var player = await databaseFunctions.GetEmptyPlayerByTelegramId(chatId) ?? await databaseFunctions.CreateNewPlayer(chatId);
 
             var reply = command switch
             {
